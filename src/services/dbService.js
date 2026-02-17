@@ -23,6 +23,30 @@ class DbService {
     }
   }
 
+  // Search suppliers by registration number or name
+  async searchSuppliers(query) {
+    try {
+      const pool = await getConnection();
+      const result = await pool.request()
+        .input('query', sql.NVarChar, `%${query}%`)
+        .query(`
+          SELECT DISTINCT TOP 50
+            [RegNo],
+            [Dealer] as SupplierName,
+            [Route]
+          FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
+          WHERE [RegNo] LIKE @query 
+             OR [Dealer] LIKE @query
+          ORDER BY [RegNo]
+        `);
+      
+      return result.recordset;
+    } catch (error) {
+      console.error('Error in searchSuppliers:', error);
+      throw error;
+    }
+  }
+
   // Get all deductions summary for a specific registration number and leaf type
   async getDeductionSummary(regNo, leafType) {
     try {
@@ -104,7 +128,7 @@ class DbService {
       const currentHour = new Date().getHours();
       const shift = currentHour < 12 ? 'Morning' : 'Evening';
       
-      // Get PC name (you might want to pass this from frontend)
+      // Get PC name
       const pcName = deductionData.pcName || 'MOBILE_APP';
       
       const result = await pool.request()

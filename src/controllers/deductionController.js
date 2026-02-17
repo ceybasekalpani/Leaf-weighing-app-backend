@@ -18,8 +18,6 @@ const deductionController = {
       res.status(200).json({
         success: true,
         data: {
-          regNo: parseInt(regNo),
-          leafType: leafType,
           totalBags: summary.TotalBags,
           totalGross: summary.TotalGross,
           totalBagWeight: summary.TotalBagWeight,
@@ -47,7 +45,7 @@ const deductionController = {
       const deductionData = req.body;
       
       // Validate required fields
-      const requiredFields = ['regNo', 'supplierName', 'route', 'leafType', 'bags', 'userName'];
+      const requiredFields = ['regNo', 'supplierName', 'route', 'leafType', 'bags', 'userName', 'month'];
       const missingFields = requiredFields.filter(field => !deductionData[field]);
       
       if (missingFields.length > 0) {
@@ -57,26 +55,13 @@ const deductionController = {
         });
       }
 
-      // Calculate net weight if not provided
-      if (!deductionData.netWeight) {
-        const gross = parseFloat(deductionData.gross) || 0;
-        const bagWeight = parseFloat(deductionData.bagWeight) || 0;
-        const water = parseFloat(deductionData.water) || 0;
-        const coarce = parseFloat(deductionData.coarce) || 0;
-        const boiled = parseFloat(deductionData.boiled) || 0;
-        const rejected = parseFloat(deductionData.rejected) || 0;
-        
-        deductionData.netWeight = gross - bagWeight - water - coarce - boiled - rejected;
-      }
-
       const result = await dbService.saveDeduction(deductionData);
       
       res.status(201).json({
         success: true,
         message: 'Deduction saved successfully',
         data: {
-          ind: result.ind,
-          ...deductionData
+          ind: result.ind
         }
       });
     } catch (error) {

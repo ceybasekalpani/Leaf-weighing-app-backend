@@ -35,8 +35,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
+// 404 handler - FIXED: Remove the '*' wildcard, use a function instead
+app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: 'Route not found'

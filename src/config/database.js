@@ -1,18 +1,11 @@
-const sql = require('mssql');
+const sql = require('mssql/msnodesqlv8'); // Use the native Windows driver
 require('dotenv').config();
 
+// Use the DSN we just created in the ODBC Administrator
 const dbConfig = {
-  server: process.env.DB_SERVER,
-  database: process.env.DB_DATABASE,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  port: parseInt(process.env.DB_PORT),
+  connectionString: `DSN=TeaFactoryDB;Trusted_Connection=yes;`,
   options: {
-    encrypt: true, // for Azure
-    trustServerCertificate: true, // for local dev
-    enableArithAbort: true,
-    connectTimeout: 30000,
-    requestTimeout: 30000
+    trustServerCertificate: true, // Important for local development
   },
   pool: {
     max: 10,
@@ -21,20 +14,21 @@ const dbConfig = {
   }
 };
 
+console.log('🚀 Attempting to connect using DSN: TeaFactoryDB');
 let pool = null;
 
 const getConnection = async () => {
   try {
     if (pool) {
-      console.log('Using existing connection pool');
       return pool;
     }
-    
+
     pool = await sql.connect(dbConfig);
-    console.log('Connected to SQL Server');
+    console.log('✅ Connected to SQL Server successfully using Windows Authentication!');
     return pool;
   } catch (err) {
-    console.error('Database connection failed:', err);
+    console.error('❌ Database connection failed:');
+    console.error('Error:', err.message);
     throw err;
   }
 };

@@ -56,23 +56,11 @@ const supplierController = {
         });
       }
 
-      const pool = await dbService.getConnection();
-      const result = await pool.request()
-        .input('query', sql.NVarChar, `%${query}%`)
-        .query(`
-          SELECT DISTINCT 
-            [RegNo],
-            [Dealer] as SupplierName,
-            [Route]
-          FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
-          WHERE [RegNo] LIKE @query 
-             OR [Dealer] LIKE @query
-          ORDER BY [RegNo]
-        `);
+      const suppliers = await dbService.searchSuppliers(query);
       
       res.status(200).json({
         success: true,
-        data: result.recordset
+        data: suppliers
       });
     } catch (error) {
       console.error('Error in searchSuppliers:', error);
