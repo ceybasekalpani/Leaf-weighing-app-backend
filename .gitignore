@@ -1,0 +1,69 @@
+# dependencies
+/node_modules
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+package-lock.json
+
+# environment variables
+.env
+.env.local
+.env.production
+.env.development
+
+# database files
+*.db
+*.sqlite
+*.mdb
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# coverage directory used by tools like istanbul
+coverage
+
+# nyc test coverage
+.nyc_output
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/settings.json
+.idea/workspace.xml
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# testing
+/coverage
+
+# production
+/build
+/dist
+
+# misc
+*.pem
+.secrets
+
+# vercel
+.vercel
