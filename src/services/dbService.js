@@ -124,6 +124,7 @@ class DbService {
             [NetWeight],
             [Shift],
             [UserName],
+            [Mode],
             [LogTime]
           FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
           WHERE [RegNo] = @regNo 
@@ -161,7 +162,6 @@ class DbService {
       const monthName = deductionData.month || new Date().toLocaleString('default', { month: 'short', year: 'numeric' });
       
       // IMPORTANT: Explicitly extract and parse each value with fallbacks
-      // The data might come as either camelCase or PascalCase from different sources
       
       // Registration number (required)
       const regNo = parseInt(deductionData.regNo) || parseInt(deductionData.RegNo) || 0;
@@ -178,35 +178,35 @@ class DbService {
       // Leaf type
       const leafType = deductionData.leafType || deductionData.LeafType || 'Normal';
       
-      // Bags/Qty - from your Postman data: "bags": 5
-      const qty = parseInt(deductionData.bags) || parseInt(deductionData.Bags) || 
-                  parseInt(deductionData.qty) || parseInt(deductionData.Qty) || 0;
+      // Bags/Qty - each save creates one row
+      const qty = 1; // Always 1 for each deduction entry
       
-      // Gross - from your Postman data: "gross": 500
-      const gross = parseFloat(deductionData.gross) || parseFloat(deductionData.Gross) || 0;
+      // Gross - the current gross from summary
+      const gross = parseFloat(deductionData.Gross) || 0;
       
-      // BagWeight - from your Postman data: "bagWeight": 10
-      const bagWeight = parseFloat(deductionData.bagWeight) || parseFloat(deductionData.BagWeight) || 0;
+      // BagWeight
+      const bagWeight = parseFloat(deductionData.BagWeight) || 0;
       
-      // Coarse - from your Postman data: "coarce": 3 (note: misspelled as coarce)
-      const coarse = parseFloat(deductionData.coarce) || parseFloat(deductionData.coarse) || 
-                     parseFloat(deductionData.Coarse) || 0;
+      // Coarse
+      const coarse = parseFloat(deductionData.Coarse) || 0;
       
-      // Water - from your Postman data: "water": 2
-      const water = parseFloat(deductionData.water) || parseFloat(deductionData.Water) || 0;
+      // Water
+      const water = parseFloat(deductionData.Water) || 0;
       
-      // Boiled/Boild - from your Postman data: "boiled": 1 (database expects "Boild")
-      const boild = parseFloat(deductionData.boiled) || parseFloat(deductionData.Boiled) || 
-                    parseFloat(deductionData.boild) || parseFloat(deductionData.Boild) || 0;
+      // Boiled/Boild
+      const boild = parseFloat(deductionData.Boild) || parseFloat(deductionData.Boiled) || 0;
       
-      // Rejected - from your Postman data: "rejected": 0
-      const rejected = parseFloat(deductionData.rejected) || parseFloat(deductionData.Rejected) || 0;
+      // Rejected
+      const rejected = parseFloat(deductionData.Rejected) || 0;
       
-      // NetWeight - from your Postman data: "netWeight": 484
-      const netWeight = parseFloat(deductionData.netWeight) || parseFloat(deductionData.NetWeight) || 0;
+      // NetWeight
+      const netWeight = parseFloat(deductionData.NetWeight) || 0;
       
-      // User name
-      const userName = deductionData.userName || deductionData.UserName || 'mobile_user';
+      // User name - from logged-in user
+      const userName = deductionData.userName || 'mobile_user';
+      
+      // Mode - from logged-in user (A for Auto, M for Manual)
+      const mode = deductionData.mode || 'A';
       
       // Log the mapped values to verify they're correct
       console.log('📊 MAPPED VALUES FOR DATABASE:', {
@@ -224,7 +224,7 @@ class DbService {
         netWeight,
         shift,
         userName,
-        mode: 'A',
+        mode,
         pcName,
         isDeduction: 1,
         monthName,
@@ -247,9 +247,9 @@ class DbService {
         .input('netWeight', sql.Decimal(10,2), netWeight)
         .input('shift', sql.NVarChar, shift)
         .input('userName', sql.NVarChar, userName)
-        .input('mode', sql.NVarChar, 'A')
+        .input('mode', sql.NVarChar, mode) // Add mode parameter
         .input('pcName', sql.NVarChar, pcName)
-        .input('isDeduction', sql.Bit, 1) // Explicitly set to 1 as per supervisor
+        .input('isDeduction', sql.Bit, 1)
         .input('monthName', sql.NVarChar, monthName)
         .input('dayNo', sql.Int, dayNo)
         .query(`
