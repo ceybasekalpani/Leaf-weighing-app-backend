@@ -1,11 +1,14 @@
 const dbService = require('../services/dbService');
 
 const deductionController = {
-  // Get deduction summary for a specific registration number and leaf type
+  // Get deduction summary by registration number - leaf type from header (UPDATED - now shows only today's data)
   getDeductionSummary: async (req, res) => {
     try {
-      const { regNo, leafType } = req.params;
+      const { regNo } = req.params;
+      const leafType = req.headers['leaf-type'];
       
+      console.log('📊 Getting today\'s summary for RegNo:', regNo, 'LeafType:', leafType);
+
       if (!regNo || !leafType) {
         return res.status(400).json({
           success: false,
@@ -13,21 +16,11 @@ const deductionController = {
         });
       }
 
-      const summary = await dbService.getDeductionSummary(regNo, leafType);
+      const summary = await dbService.getTodayDeductionSummary(regNo, leafType);
       
       res.status(200).json({
         success: true,
-        data: {
-          totalBags: summary.TotalBags,
-          totalGross: summary.TotalGross,
-          totalBagWeight: summary.TotalBagWeight,
-          totalCoarce: summary.TotalCoarse,
-          totalWater: summary.TotalWater,
-          totalBoiled: summary.TotalBoiled,
-          totalRejected: summary.TotalRejected,
-          totalNetWeight: summary.TotalNetWeight,
-          transactionCount: summary.TransactionCount
-        }
+        data: summary
       });
     } catch (error) {
       console.error('Error in getDeductionSummary:', error);
@@ -44,14 +37,13 @@ const deductionController = {
     try {
       const deductionData = req.body;
       
+      console.log('💾 Saving deduction:', deductionData);
+
       // Validate required fields
-      const requiredFields = ['regNo', 'supplierName', 'route', 'leafType', 'bags', 'userName', 'month'];
-      const missingFields = requiredFields.filter(field => !deductionData[field]);
-      
-      if (missingFields.length > 0) {
+      if (!deductionData.regNo || !deductionData.supplierName || !deductionData.leafType) {
         return res.status(400).json({
           success: false,
-          message: `Missing required fields: ${missingFields.join(', ')}`
+          message: 'Missing required fields: regNo, supplierName, leafType'
         });
       }
 
@@ -59,10 +51,8 @@ const deductionController = {
       
       res.status(201).json({
         success: true,
-        message: 'Deduction saved successfully',
-        data: {
-          ind: result.ind
-        }
+        data: result,
+        message: 'Deduction saved successfully'
       });
     } catch (error) {
       console.error('Error in saveDeduction:', error);
@@ -74,11 +64,13 @@ const deductionController = {
     }
   },
 
-  // Get today's transactions for a specific registration number
+  // Get today's transactions for a registration number
   getTodayTransactions: async (req, res) => {
     try {
       const { regNo } = req.params;
       
+      console.log('📋 Getting today\'s transactions for RegNo:', regNo);
+
       if (!regNo) {
         return res.status(400).json({
           success: false,

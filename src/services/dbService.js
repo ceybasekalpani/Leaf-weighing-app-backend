@@ -47,13 +47,18 @@ class DbService {
     }
   }
 
-  // Get all deductions summary for a specific registration number and leaf type
-  async getDeductionSummary(regNo, leafType) {
+  // Get today's deductions summary for a specific registration number and leaf type
+  async getTodayDeductionSummary(regNo, leafType) {
     try {
       const pool = await getConnection();
+      const today = new Date().toISOString().split('T')[0];
+      
+      console.log(`📊 Getting TODAY'S summary for RegNo: ${regNo}, LeafType: ${leafType}`);
+      
       const result = await pool.request()
         .input('regNo', sql.Int, regNo)
         .input('leafType', sql.NVarChar, leafType)
+        .input('today', sql.Date, today)
         .query(`
           SELECT 
             ISNULL(SUM([Qty]), 0) as TotalBags,
@@ -69,11 +74,26 @@ class DbService {
           WHERE [RegNo] = @regNo 
             AND [LeafType] = @leafType
             AND [IsDeduction] = 1
+            AND CAST([LogTime] AS DATE) = @today
         `);
+      
+      if (!result.recordset[0] || result.recordset[0].TotalBags === 0) {
+        return {
+          TotalBags: 0,
+          TotalGross: 0,
+          TotalBagWeight: 0,
+          TotalCoarse: 0,
+          TotalWater: 0,
+          TotalBoiled: 0,
+          TotalRejected: 0,
+          TotalNetWeight: 0,
+          TransactionCount: 0
+        };
+      }
       
       return result.recordset[0];
     } catch (error) {
-      console.error('Error in getDeductionSummary:', error);
+      console.error('Error in getTodayDeductionSummary:', error);
       throw error;
     }
   }
@@ -119,10 +139,13 @@ class DbService {
     }
   }
 
-  // Save new deduction
+  // Save new deduction - creates ONE NEW RECORD per entry with IsDeduction = 1
   async saveDeduction(deductionData) {
     try {
       const pool = await getConnection();
+      
+      // Log the complete received data for debugging
+      console.log('📥 COMPLETE RECEIVED DATA:', JSON.stringify(deductionData, null, 2));
       
       // Determine shift based on current time
       const currentHour = new Date().getHours();
@@ -131,40 +154,121 @@ class DbService {
       // Get PC name
       const pcName = deductionData.pcName || 'MOBILE_APP';
       
+      // Get day number from current date
+      const dayNo = new Date().getDate();
+      
+      // Get current month name if not provided
+      const monthName = deductionData.month || new Date().toLocaleString('default', { month: 'short', year: 'numeric' });
+      
+      // IMPORTANT: Explicitly extract and parse each value with fallbacks
+      // The data might come as either camelCase or PascalCase from different sources
+      
+      // Registration number (required)
+      const regNo = parseInt(deductionData.regNo) || parseInt(deductionData.RegNo) || 0;
+      if (!regNo) {
+        throw new Error('Registration number is required');
+      }
+      
+      // Route
+      const route = deductionData.route || deductionData.Route || '';
+      
+      // Supplier/Dealer name
+      const dealer = deductionData.supplierName || deductionData.SupplierName || deductionData.dealer || deductionData.Dealer || '';
+      
+      // Leaf type
+      const leafType = deductionData.leafType || deductionData.LeafType || 'Normal';
+      
+      // Bags/Qty - from your Postman data: "bags": 5
+      const qty = parseInt(deductionData.bags) || parseInt(deductionData.Bags) || 
+                  parseInt(deductionData.qty) || parseInt(deductionData.Qty) || 0;
+      
+      // Gross - from your Postman data: "gross": 500
+      const gross = parseFloat(deductionData.gross) || parseFloat(deductionData.Gross) || 0;
+      
+      // BagWeight - from your Postman data: "bagWeight": 10
+      const bagWeight = parseFloat(deductionData.bagWeight) || parseFloat(deductionData.BagWeight) || 0;
+      
+      // Coarse - from your Postman data: "coarce": 3 (note: misspelled as coarce)
+      const coarse = parseFloat(deductionData.coarce) || parseFloat(deductionData.coarse) || 
+                     parseFloat(deductionData.Coarse) || 0;
+      
+      // Water - from your Postman data: "water": 2
+      const water = parseFloat(deductionData.water) || parseFloat(deductionData.Water) || 0;
+      
+      // Boiled/Boild - from your Postman data: "boiled": 1 (database expects "Boild")
+      const boild = parseFloat(deductionData.boiled) || parseFloat(deductionData.Boiled) || 
+                    parseFloat(deductionData.boild) || parseFloat(deductionData.Boild) || 0;
+      
+      // Rejected - from your Postman data: "rejected": 0
+      const rejected = parseFloat(deductionData.rejected) || parseFloat(deductionData.Rejected) || 0;
+      
+      // NetWeight - from your Postman data: "netWeight": 484
+      const netWeight = parseFloat(deductionData.netWeight) || parseFloat(deductionData.NetWeight) || 0;
+      
+      // User name
+      const userName = deductionData.userName || deductionData.UserName || 'mobile_user';
+      
+      // Log the mapped values to verify they're correct
+      console.log('📊 MAPPED VALUES FOR DATABASE:', {
+        regNo,
+        route,
+        dealer,
+        leafType,
+        qty,
+        gross,
+        bagWeight,
+        coarse,
+        water,
+        boild,
+        rejected,
+        netWeight,
+        shift,
+        userName,
+        mode: 'A',
+        pcName,
+        isDeduction: 1,
+        monthName,
+        dayNo
+      });
+      
+      // Execute the insert query with explicit parameter mapping
       const result = await pool.request()
-        .input('regNo', sql.Int, deductionData.regNo)
-        .input('route', sql.NVarChar, deductionData.route)
-        .input('dealer', sql.NVarChar, deductionData.supplierName)
-        .input('leafType', sql.NVarChar, deductionData.leafType)
-        .input('qty', sql.Int, parseInt(deductionData.bags) || 0)
-        .input('gross', sql.Decimal(10,2), parseFloat(deductionData.gross) || 0)
-        .input('bagWeight', sql.Decimal(10,2), parseFloat(deductionData.bagWeight) || 0)
-        .input('water', sql.Decimal(10,2), parseFloat(deductionData.water) || 0)
-        .input('coarse', sql.Decimal(10,2), parseFloat(deductionData.coarce) || 0)
-        .input('rejected', sql.Decimal(10,2), parseFloat(deductionData.rejected) || 0)
-        .input('boild', sql.Decimal(10,2), parseFloat(deductionData.boiled) || 0)
-        .input('netWeight', sql.Decimal(10,2), parseFloat(deductionData.netWeight) || 0)
+        .input('regNo', sql.Int, regNo)
+        .input('route', sql.NVarChar, route)
+        .input('dealer', sql.NVarChar, dealer)
+        .input('leafType', sql.NVarChar, leafType)
+        .input('qty', sql.Int, qty)
+        .input('gross', sql.Decimal(10,2), gross)
+        .input('bagWeight', sql.Decimal(10,2), bagWeight)
+        .input('water', sql.Decimal(10,2), water)
+        .input('coarse', sql.Decimal(10,2), coarse)
+        .input('rejected', sql.Decimal(10,2), rejected)
+        .input('boild', sql.Decimal(10,2), boild)
+        .input('netWeight', sql.Decimal(10,2), netWeight)
         .input('shift', sql.NVarChar, shift)
-        .input('userName', sql.NVarChar, deductionData.userName)
-        .input('mode', sql.NVarChar, 'mobile')
+        .input('userName', sql.NVarChar, userName)
+        .input('mode', sql.NVarChar, 'A')
         .input('pcName', sql.NVarChar, pcName)
-        .input('isDeduction', sql.Bit, 1)
-        .input('monthName', sql.NVarChar, deductionData.month)
+        .input('isDeduction', sql.Bit, 1) // Explicitly set to 1 as per supervisor
+        .input('monthName', sql.NVarChar, monthName)
+        .input('dayNo', sql.Int, dayNo)
         .query(`
           INSERT INTO [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp] (
             [RegNo], [Route], [Dealer], [LeafType], [Qty], [Gross],
             [BagWeight], [Water], [Coarse], [Rejected], [Boild],
             [NetWeight], [Shift], [UserName], [Mode], [PC_Name],
-            [IsDeduction], [MonthName], [LogTime]
+            [IsDeduction], [MonthName], [DayNo], [LogTime]
           ) VALUES (
             @regNo, @route, @dealer, @leafType, @qty, @gross,
             @bagWeight, @water, @coarse, @rejected, @boild,
             @netWeight, @shift, @userName, @mode, @pcName,
-            @isDeduction, @monthName, GETDATE()
+            @isDeduction, @monthName, @dayNo, GETDATE()
           );
           
           SELECT SCOPE_IDENTITY() as Ind;
         `);
+      
+      console.log('✅ SAVE SUCCESSFUL! Ind:', result.recordset[0].Ind);
       
       return {
         success: true,
@@ -172,7 +276,7 @@ class DbService {
         message: 'Deduction saved successfully'
       };
     } catch (error) {
-      console.error('Error in saveDeduction:', error);
+      console.error('❌ ERROR in saveDeduction:', error);
       throw error;
     }
   }
