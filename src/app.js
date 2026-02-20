@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const supplierRoutes = require('./routes/supplierRoutes');
 const deductionRoutes = require('./routes/deductionRoutes');
+const collectionViewRoutes = require('./routes/collectionViewRoutes'); // Add this line
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/deductions', deductionRoutes);
+app.use('/api/collections', collectionViewRoutes); // Add this line
 
 // Health check route
 app.get('/api/health', (req, res) => {

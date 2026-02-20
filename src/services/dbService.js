@@ -281,6 +281,139 @@ async saveDeduction(deductionData) {
     throw error;
   }
 }
+
+// Add these methods to your existing dbService.js file inside the class
+
+// Get today's collections grouped by registration number (combining both original collections and deductions)
+async getTodayGroupedCollections() {
+  try {
+    const pool = await getConnection();
+    const today = new Date().toISOString().split('T')[0];
+    
+    console.log(`📊 Getting TODAY'S grouped collections for date: ${today}`);
+    
+    const result = await pool.request()
+      .input('today', sql.Date, today)
+      .query(`
+        SELECT 
+          [RegNo],
+          MAX([Dealer]) as SupplierName,
+          MAX([Route]) as Route,
+          
+          -- Total Bags (sum Qty where IsDeduction = 0)
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 0 THEN [Qty] ELSE 0 END), 0) as TotalBags,
+          
+          -- Gross Weight (sum Gross where IsDeduction = 0)
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 0 THEN [Gross] ELSE 0 END), 0) as TotalGross,
+          
+          -- Total Deductions (sum all deduction fields where IsDeduction = 1)
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [BagWeight] ELSE 0 END), 0) as TotalBagWeight,
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [Coarse] ELSE 0 END), 0) as TotalCoarse,
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [Water] ELSE 0 END), 0) as TotalWater,
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [Boild] ELSE 0 END), 0) as TotalBoiled,
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [Rejected] ELSE 0 END), 0) as TotalRejected,
+          
+          -- Net Weight (sum NetWeight where IsDeduction = 0)
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 0 THEN [NetWeight] ELSE 0 END), 0) as TotalNetWeight,
+          
+          -- Count transactions for information
+          COUNT(*) as TransactionCount,
+          SUM(CASE WHEN [IsDeduction] = 0 THEN 1 ELSE 0 END) as CollectionCount,
+          SUM(CASE WHEN [IsDeduction] = 1 THEN 1 ELSE 0 END) as DeductionCount
+          
+        FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
+        WHERE CAST([LogTime] AS DATE) = @today
+        GROUP BY [RegNo]
+        ORDER BY [RegNo]
+      `);
+    
+    // Format the results for the frontend
+    const formattedResults = result.recordset.map(item => ({
+      regNo: item.RegNo,
+      supplierName: item.SupplierName || `Supplier ${item.RegNo}`,
+      route: item.Route || '',
+      bags: Math.round(item.TotalBags || 0).toString(),
+      gross: Math.round(item.TotalGross || 0).toString(),
+      totalBagWeight: Math.round(item.TotalBagWeight || 0).toString(),
+      totalCoarce: Math.round(item.TotalCoarse || 0).toString(),
+      totalWater: Math.round(item.TotalWater || 0).toString(),
+      totalBoiled: Math.round(item.TotalBoiled || 0).toString(),
+      totalRejected: Math.round(item.TotalRejected || 0).toString(),
+      netWeight: Math.round(item.TotalNetWeight || 0).toString(),
+      transactionCount: item.TransactionCount,
+      collectionCount: item.CollectionCount,
+      deductionCount: item.DeductionCount,
+      date: today,
+      month: new Date().toLocaleString('default', { month: 'short', year: 'numeric' })
+    }));
+    
+    return formattedResults;
+  } catch (error) {
+    console.error('Error in getTodayGroupedCollections:', error);
+    throw error;
+  }
+}
+
+// Get grouped collections by specific date
+async getGroupedCollectionsByDate(date) {
+  try {
+    const pool = await getConnection();
+    
+    console.log(`📊 Getting grouped collections for date: ${date}`);
+    
+    const result = await pool.request()
+      .input('date', sql.Date, date)
+      .query(`
+        SELECT 
+          [RegNo],
+          MAX([Dealer]) as SupplierName,
+          MAX([Route]) as Route,
+          
+          -- Total Bags (sum Qty where IsDeduction = 0)
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 0 THEN [Qty] ELSE 0 END), 0) as TotalBags,
+          
+          -- Gross Weight (sum Gross where IsDeduction = 0)
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 0 THEN [Gross] ELSE 0 END), 0) as TotalGross,
+          
+          -- Total Deductions (sum all deduction fields where IsDeduction = 1)
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [BagWeight] ELSE 0 END), 0) as TotalBagWeight,
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [Coarse] ELSE 0 END), 0) as TotalCoarse,
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [Water] ELSE 0 END), 0) as TotalWater,
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [Boild] ELSE 0 END), 0) as TotalBoiled,
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 1 THEN [Rejected] ELSE 0 END), 0) as TotalRejected,
+          
+          -- Net Weight (sum NetWeight where IsDeduction = 0)
+          ISNULL(SUM(CASE WHEN [IsDeduction] = 0 THEN [NetWeight] ELSE 0 END), 0) as TotalNetWeight
+          
+        FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
+        WHERE CAST([LogTime] AS DATE) = @date
+        GROUP BY [RegNo]
+        ORDER BY [RegNo]
+      `);
+    
+    // Format the results for the frontend
+    const formattedResults = result.recordset.map(item => ({
+      regNo: item.RegNo,
+      supplierName: item.SupplierName || `Supplier ${item.RegNo}`,
+      route: item.Route || '',
+      bags: Math.round(item.TotalBags || 0).toString(),
+      gross: Math.round(item.TotalGross || 0).toString(),
+      totalBagWeight: Math.round(item.TotalBagWeight || 0).toString(),
+      totalCoarce: Math.round(item.TotalCoarse || 0).toString(),
+      totalWater: Math.round(item.TotalWater || 0).toString(),
+      totalBoiled: Math.round(item.TotalBoiled || 0).toString(),
+      totalRejected: Math.round(item.TotalRejected || 0).toString(),
+      netWeight: Math.round(item.TotalNetWeight || 0).toString(),
+      date: date,
+      month: new Date(date).toLocaleString('default', { month: 'short', year: 'numeric' })
+    }));
+    
+    return formattedResults;
+  } catch (error) {
+    console.error('Error in getGroupedCollectionsByDate:', error);
+    throw error;
+  }
+}
 }
 
 module.exports = new DbService();
