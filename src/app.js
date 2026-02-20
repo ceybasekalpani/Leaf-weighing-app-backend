@@ -4,13 +4,14 @@ require('dotenv').config();
 
 const supplierRoutes = require('./routes/supplierRoutes');
 const deductionRoutes = require('./routes/deductionRoutes');
-const collectionViewRoutes = require('./routes/collectionViewRoutes'); // Add this line
+const collectionViewRoutes = require('./routes/collectionViewRoutes');
+const leafCountRoutes = require('./routes/leafCountRoutes');
 
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: '*', // In production, replace with your frontend URL
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -26,7 +27,8 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/deductions', deductionRoutes);
-app.use('/api/collections', collectionViewRoutes); // Add this line
+app.use('/api/collections', collectionViewRoutes);
+app.use('/api/leafcount', leafCountRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -37,11 +39,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 handler - FIXED: Remove the '*' wildcard, use a function instead
+// 404 handler - FIXED: Use a function instead of '*'
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found'
+    message: `Route ${req.method} ${req.url} not found`
   });
 });
 
@@ -51,7 +53,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({
     success: false,
     message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
   });
 });
 
