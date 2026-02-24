@@ -5,7 +5,8 @@ const leafCountController = require('../controllers/leafCountController');
 // Get all routes (distinct routes from Tr_LeafCollection_Temp)
 router.get('/routes', leafCountController.getRoutes);
 
-// Get total weight for a specific route
+// Get total net weight for a specific route
+// Formula: Gross - (Coarse + Water + BagWeight + Spd + Boiled + Rejected)
 router.get('/routes/:routeName/total-weight', leafCountController.getRouteTotalWeight);
 
 // Save leaf count

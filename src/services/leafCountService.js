@@ -6,36 +6,59 @@ class LeafCountService {
   async getDistinctRoutes() {
     try {
       const pool = await getConnection();
+      console.log('📊 Connected to database, fetching routes...');
+      
       const result = await pool.request()
         .query(`
           SELECT DISTINCT [Route]
           FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
-          WHERE [Route] IS NOT NULL AND [Route] != ''
+          WHERE [Route] IS NOT NULL 
+            AND [Route] != ''
+            AND [Route] != 'null'
+            AND LTRIM(RTRIM([Route])) != ''
           ORDER BY [Route]
         `);
       
-      // Return as array of strings
-      return result.recordset.map(item => item.Route);
+      console.log(`📊 Query returned ${result.recordset.length} routes`);
+      
+      // Return as array of strings, trimming whitespace
+      return result.recordset.map(item => item.Route ? item.Route.trim() : '').filter(route => route);
     } catch (error) {
       console.error('Error in getDistinctRoutes:', error);
       throw new Error(`Database error: ${error.message}`);
     }
   }
 
-  // Get total weight for a specific route on a specific date
-  // Calculation: Gross - (coarce + water + bag weight + spd + boiled + rejected)
-  async getRouteTotalWeight(routeName, date) {
+  // Get total net weight for a specific route on a specific date
+  // Formula: Gross - (Coarse + Water + BagWeight + Spd + Boiled + Rejected + RouteDeduct + Excess_Leaf + Transfer)
+  async getRouteTotalWeight(routeName, date, month) {
     try {
       const pool = await getConnection();
       
-      // If date is provided, use that date, otherwise use today
-      const targetDate = date || new Date().toISOString().split('T')[0];
+      // Parse month string (format: "MMM-YYYY" like "Jan-2025")
+      const [monthAbbr, year] = month.split('-');
       
-      console.log('🔍 Fetching total weight for:', { routeName, targetDate });
+      // Map month abbreviation to month number (1-12)
+      const monthMap = {
+        'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+        'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+      };
+      
+      const monthNumber = monthMap[monthAbbr];
+      
+      if (!monthNumber || !year) {
+        console.error('❌ Invalid month format:', month);
+        return 0;
+      }
+      
+      // Construct full date: YYYY-MM-DD
+      const fullDate = `${year}-${String(monthNumber).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+      
+      console.log('🔍 Constructed full date:', fullDate, 'from inputs:', { routeName, date, month });
       
       const result = await pool.request()
-        .input('route', sql.NVarChar, routeName)
-        .input('targetDate', sql.Date, targetDate)
+        .input('route', sql.NVarChar, routeName.trim())
+        .input('targetDate', sql.Date, fullDate)
         .query(`
           SELECT 
             COUNT(*) as RecordCount,
@@ -46,104 +69,64 @@ class LeafCountService {
             ISNULL(SUM([Spd]), 0) as TotalSpd,
             ISNULL(SUM([Boild]), 0) as TotalBoiled,
             ISNULL(SUM([Rejected]), 0) as TotalRejected,
-            ISNULL(SUM([NetWeight]), 0) as TotalNetWeight
+            ISNULL(SUM([RouteDeduct]), 0) as TotalRouteDeduct,
+            ISNULL(SUM([Excess_Leaf]), 0) as TotalExcessLeaf,
+            ISNULL(SUM([Transfer]), 0) as TotalTransfer,
+            ISNULL(SUM([RouteDeductPre]), 0) as TotalRouteDeductPre
           FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
-          WHERE [Route] = @route
-            AND [IsDeduction] = 0
+          WHERE LTRIM(RTRIM([Route])) = LTRIM(RTRIM(@route))
             AND CAST([LogTime] AS DATE) = @targetDate
         `);
       
       const data = result.recordset[0];
-      console.log('📊 Query result:', data);
       
-      // Calculate: Gross - (coarce + water + bag weight + spd + boiled + rejected)
-      const totalGross = data.TotalGross || 0;
-      const totalDeductions = (data.TotalCoarse || 0) + 
-                              (data.TotalWater || 0) + 
-                              (data.TotalBagWeight || 0) + 
-                              (data.TotalSpd || 0) + 
-                              (data.TotalBoiled || 0) + 
-                              (data.TotalRejected || 0);
+      if (!data || data.RecordCount === 0) {
+        console.log('⚠️ No data found for route:', routeName, 'on date:', fullDate);
+        return 0;
+      }
       
-      const calculatedTotalWeight = totalGross - totalDeductions;
+      // Calculate total deductions including ALL possible deduction fields
+      const totalDeductions = 
+        (data.TotalCoarse || 0) + 
+        (data.TotalWater || 0) + 
+        (data.TotalBagWeight || 0) + 
+        (data.TotalSpd || 0) + 
+        (data.TotalBoiled || 0) + 
+        (data.TotalRejected || 0) +
+        (data.TotalRouteDeduct || 0) +
+        (data.TotalExcessLeaf || 0) +
+        (data.TotalTransfer || 0) +
+        (data.TotalRouteDeductPre || 0);
       
-      console.log('🧮 Calculation:', {
-        totalGross,
-        totalDeductions,
-        calculatedTotalWeight,
-        components: {
-          coarse: data.TotalCoarse,
-          water: data.TotalWater,
-          bagWeight: data.TotalBagWeight,
-          spd: data.TotalSpd,
-          boiled: data.TotalBoiled,
-          rejected: data.TotalRejected
-        }
+      // Calculate net weight (Gross - Deductions)
+      const totalNetWeight = (data.TotalGross || 0) - totalDeductions;
+      
+      console.log('🧮 Calculation Details:', {
+        route: routeName,
+        date: fullDate,
+        recordCount: data.RecordCount,
+        totalGross: data.TotalGross,
+        // Standard deductions
+        totalCoarse: data.TotalCoarse,
+        totalWater: data.TotalWater,
+        totalBagWeight: data.TotalBagWeight,
+        totalSpd: data.TotalSpd,
+        totalBoiled: data.TotalBoiled,
+        totalRejected: data.TotalRejected,
+        // Additional deductions from your table
+        totalRouteDeduct: data.TotalRouteDeduct,
+        totalExcessLeaf: data.TotalExcessLeaf,
+        totalTransfer: data.TotalTransfer,
+        totalRouteDeductPre: data.TotalRouteDeductPre,
+        totalDeductions: totalDeductions,
+        totalNetWeight: totalNetWeight > 0 ? totalNetWeight : 0
       });
       
-      // Return the calculated value
-      return calculatedTotalWeight > 0 ? calculatedTotalWeight : 0;
+      // Return the calculated net weight (ensure it's not negative)
+      return totalNetWeight > 0 ? totalNetWeight : 0;
+      
     } catch (error) {
-      console.error('Error in getRouteTotalWeight:', error);
-      throw new Error(`Database error: ${error.message}`);
-    }
-  }
-
-  // Alternative: Get detailed breakdown (if you want to show more info in UI)
-  async getRouteWeightBreakdown(routeName, date) {
-    try {
-      const pool = await getConnection();
-      
-      const targetDate = date || new Date().toISOString().split('T')[0];
-      
-      const result = await pool.request()
-        .input('route', sql.NVarChar, routeName)
-        .input('targetDate', sql.Date, targetDate)
-        .query(`
-          SELECT 
-            COUNT(*) as RecordCount,
-            ISNULL(SUM([Gross]), 0) as TotalGross,
-            ISNULL(SUM([Coarse]), 0) as TotalCoarse,
-            ISNULL(SUM([Water]), 0) as TotalWater,
-            ISNULL(SUM([BagWeight]), 0) as TotalBagWeight,
-            ISNULL(SUM([Spd]), 0) as TotalSpd,
-            ISNULL(SUM([Boild]), 0) as TotalBoiled,
-            ISNULL(SUM([Rejected]), 0) as TotalRejected,
-            ISNULL(SUM([NetWeight]), 0) as TotalNetWeight
-          FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
-          WHERE [Route] = @route
-            AND [IsDeduction] = 0
-            AND CAST([LogTime] AS DATE) = @targetDate
-        `);
-      
-      const data = result.recordset[0];
-      
-      const totalGross = data.TotalGross || 0;
-      const totalDeductions = (data.TotalCoarse || 0) + 
-                              (data.TotalWater || 0) + 
-                              (data.TotalBagWeight || 0) + 
-                              (data.TotalSpd || 0) + 
-                              (data.TotalBoiled || 0) + 
-                              (data.TotalRejected || 0);
-      
-      const calculatedTotalWeight = totalGross - totalDeductions;
-      
-      return {
-        totalGross,
-        totalDeductions,
-        calculatedTotalWeight: calculatedTotalWeight > 0 ? calculatedTotalWeight : 0,
-        breakdown: {
-          coarse: data.TotalCoarse,
-          water: data.TotalWater,
-          bagWeight: data.TotalBagWeight,
-          spd: data.TotalSpd,
-          boiled: data.TotalBoiled,
-          rejected: data.TotalRejected
-        },
-        recordCount: data.RecordCount
-      };
-    } catch (error) {
-      console.error('Error in getRouteWeightBreakdown:', error);
+      console.error('❌ Error in getRouteTotalWeight:', error);
       throw new Error(`Database error: ${error.message}`);
     }
   }
@@ -153,16 +136,9 @@ class LeafCountService {
     try {
       const pool = await getConnection();
       
-      // Get PC name (hostname)
       const pcName = leafCountData.pcName || os.hostname() || 'MOBILE_APP';
-      
-      // Get user from data or default
       const userName = leafCountData.userName || leafCountData.user || 'mobile_user';
-      
-      // Parse date (day number)
       const date = parseInt(leafCountData.date) || new Date().getDate();
-      
-      // Parse leaf count values
       const bestLeaf = parseInt(leafCountData.bestLeaf) || 0;
       const belowBest = parseInt(leafCountData.bellowBest) || 0;
       const poor = parseInt(leafCountData.poor) || 0;
@@ -178,11 +154,10 @@ class LeafCountService {
         pcName
       });
       
-      // Insert into Reg_LeafCount table
       const result = await pool.request()
         .input('date', sql.Int, date)
         .input('month', sql.NVarChar, leafCountData.month)
-        .input('route', sql.NVarChar, leafCountData.route)
+        .input('route', sql.NVarChar, leafCountData.route.trim())
         .input('bestLeaf', sql.Int, bestLeaf)
         .input('belowBest', sql.Int, belowBest)
         .input('poor', sql.Int, poor)
@@ -223,7 +198,7 @@ class LeafCountService {
           [Ind],
           [Date],
           [Month],
-          [Route],
+          LTRIM(RTRIM([Route])) as Route,
           [BestLeaf],
           [BelowBest] as BellowBest,
           [Poor],
@@ -242,8 +217,8 @@ class LeafCountService {
       }
       
       if (filters.route) {
-        query += ` AND [Route] = @route`;
-        request.input('route', sql.NVarChar, filters.route);
+        query += ` AND LTRIM(RTRIM([Route])) = LTRIM(RTRIM(@route))`;
+        request.input('route', sql.NVarChar, filters.route.trim());
       }
       
       if (filters.startDate) {

@@ -8,6 +8,8 @@ const leafCountController = {
       
       const routes = await leafCountService.getDistinctRoutes();
       
+      console.log('✅ Routes found:', routes.length);
+      
       res.status(200).json({
         success: true,
         data: routes
@@ -21,42 +23,53 @@ const leafCountController = {
       });
     }
   },
-// Get total weight for a specific route on a specific date
-// Calculation: Gross - (coarce + water + bag weight + spd + boiled + rejected)
-getRouteTotalWeight: async (req, res) => {
-  try {
-    const { routeName } = req.params;
-    const { date } = req.query; // Get date from query parameter
-    
-    console.log(`📊 Fetching total weight for route: ${routeName} on date: ${date || 'today'}`);
-    
-    if (!routeName) {
-      return res.status(400).json({
+
+  // Get total net weight for a specific route on a specific date
+  getRouteTotalWeight: async (req, res) => {
+    try {
+      const { routeName } = req.params;
+      const { date, month } = req.query; // Added month parameter
+      
+      console.log(`📊 Fetching total net weight for route: ${routeName} on date: ${date}, month: ${month}`);
+      
+      if (!routeName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Route name is required'
+        });
+      }
+
+      if (!date || !month) {
+        return res.status(400).json({
+          success: false,
+          message: 'Date and month are required'
+        });
+      }
+
+      const totalNetWeight = await leafCountService.getRouteTotalWeight(routeName, date, month);
+      
+      console.log(`✅ Route ${routeName} net weight: ${totalNetWeight} kg`);
+      
+      res.status(200).json({
+        success: true,
+        data: {
+          route: routeName,
+          date: date,
+          month: month,
+          totalWeight: totalNetWeight,
+          formula: 'Gross - (Coarse + Water + BagWeight + Spd + Boiled + Rejected)'
+        },
+        message: 'Route total net weight calculated successfully'
+      });
+    } catch (error) {
+      console.error('❌ Error in getRouteTotalWeight:', error);
+      res.status(500).json({
         success: false,
-        message: 'Route name is required'
+        message: 'Failed to fetch route total weight',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-
-    const totalWeight = await leafCountService.getRouteTotalWeight(routeName, date);
-    
-    res.status(200).json({
-      success: true,
-      data: {
-        route: routeName,
-        date: date || new Date().toISOString().split('T')[0],
-        totalWeight: totalWeight || 0,
-        calculation: 'Gross - (Coarse + Water + BagWeight + Spd + Boiled + Rejected)'
-      }
-    });
-  } catch (error) {
-    console.error('Error in getRouteTotalWeight:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch route total weight',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-},
+  },
 
   // Save leaf count to Reg_LeafCount table
   saveLeafCount: async (req, res) => {
@@ -73,7 +86,6 @@ getRouteTotalWeight: async (req, res) => {
         });
       }
 
-      // Validate at least one leaf count value is provided
       if (!leafCountData.bestLeaf && !leafCountData.bellowBest && !leafCountData.poor) {
         return res.status(400).json({
           success: false,
@@ -89,7 +101,7 @@ getRouteTotalWeight: async (req, res) => {
         message: 'Leaf count saved successfully'
       });
     } catch (error) {
-      console.error('Error in saveLeafCount:', error);
+      console.error('❌ Error in saveLeafCount:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to save leaf count',
@@ -114,10 +126,11 @@ getRouteTotalWeight: async (req, res) => {
       
       res.status(200).json({
         success: true,
-        data: history || []
+        data: history || [],
+        count: history.length
       });
     } catch (error) {
-      console.error('Error in getLeafCountHistory:', error);
+      console.error('❌ Error in getLeafCountHistory:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to fetch leaf count history',
