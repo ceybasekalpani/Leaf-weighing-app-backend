@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+const userRoutes = require('./routes/userRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
 const deductionRoutes = require('./routes/deductionRoutes');
 const collectionViewRoutes = require('./routes/collectionViewRoutes');
@@ -25,6 +26,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
+app.use('/api/users', userRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/deductions', deductionRoutes);
 app.use('/api/collections', collectionViewRoutes);
