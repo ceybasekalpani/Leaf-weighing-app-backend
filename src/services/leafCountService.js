@@ -2,6 +2,34 @@ const { getConnection, sql } = require('../config/database');
 const os = require('os');
 
 class LeafCountService {
+  constructor() {
+    // Initialize database and table names from environment variables
+    this.leafCollectionDb = process.env.LEAF_COLLECTION_DATABASE || 'BoughtLeaf_Kandedola';
+    this.leafCollectionTable = process.env.LEAF_COLLECTION_TABLE || 'Tr_LeafCollection_Temp';
+    this.leafCountDb = process.env.LEAF_COUNT_DATABASE || process.env.LEAF_COLLECTION_DATABASE || 'BoughtLeaf_Kandedola';
+    this.leafCountTable = process.env.LEAF_COUNT_TABLE || 'Reg_LeafCount';
+    this.schema = process.env.DB_SCHEMA || 'dbo';
+    
+    // Construct full table names with database and schema
+    this.leafCollectionFullName = `[${this.leafCollectionDb}].[${this.schema}].[${this.leafCollectionTable}]`;
+    this.leafCountFullName = `[${this.leafCountDb}].[${this.schema}].[${this.leafCountTable}]`;
+    
+    console.log('📊 LeafCountService initialized with:', {
+      leafCollectionTable: this.leafCollectionFullName,
+      leafCountTable: this.leafCountFullName
+    });
+  }
+
+  // Helper method to get leaf collection table name
+  getLeafCollectionTable() {
+    return this.leafCollectionFullName;
+  }
+
+  // Helper method to get leaf count table name
+  getLeafCountTable() {
+    return this.leafCountFullName;
+  }
+
   // Get all distinct routes from Tr_LeafCollection_Temp
   async getDistinctRoutes() {
     try {
@@ -11,7 +39,7 @@ class LeafCountService {
       const result = await pool.request()
         .query(`
           SELECT DISTINCT [Route]
-          FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
+          FROM ${this.getLeafCollectionTable()}
           WHERE [Route] IS NOT NULL 
             AND [Route] != ''
             AND [Route] != 'null'
@@ -73,7 +101,7 @@ class LeafCountService {
             ISNULL(SUM([Excess_Leaf]), 0) as TotalExcessLeaf,
             ISNULL(SUM([Transfer]), 0) as TotalTransfer,
             ISNULL(SUM([RouteDeductPre]), 0) as TotalRouteDeductPre
-          FROM [BoughtLeaf_Kandedola].[dbo].[Tr_LeafCollection_Temp]
+          FROM ${this.getLeafCollectionTable()}
           WHERE LTRIM(RTRIM([Route])) = LTRIM(RTRIM(@route))
             AND CAST([LogTime] AS DATE) = @targetDate
         `);
@@ -143,7 +171,8 @@ class LeafCountService {
       const belowBest = parseInt(leafCountData.bellowBest) || 0;
       const poor = parseInt(leafCountData.poor) || 0;
       
-      console.log('📊 Saving to Reg_LeafCount:', {
+      console.log('📊 Saving to leaf count table:', {
+        table: this.getLeafCountTable(),
         date,
         month: leafCountData.month,
         route: leafCountData.route,
@@ -164,7 +193,7 @@ class LeafCountService {
         .input('user', sql.NVarChar, userName)
         .input('pcName', sql.NVarChar, pcName)
         .query(`
-          INSERT INTO [BoughtLeaf_Kandedola].[dbo].[Reg_LeafCount] (
+          INSERT INTO ${this.getLeafCountTable()} (
             [Date], [Month], [Route], [BestLeaf], [BelowBest], [Poor], 
             [User], [PC_Name], [LogTime]
           ) VALUES (
@@ -205,7 +234,7 @@ class LeafCountService {
           [User],
           [LogTime],
           [PC_Name]
-        FROM [BoughtLeaf_Kandedola].[dbo].[Reg_LeafCount]
+        FROM ${this.getLeafCountTable()}
         WHERE 1=1
       `;
       
@@ -239,6 +268,43 @@ class LeafCountService {
     } catch (error) {
       console.error('Error in getLeafCountHistory:', error);
       throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  // Additional helper method to update database configuration dynamically
+  updateDatabaseConfig(config) {
+    let updated = false;
+    
+    if (config.leafCollectionDatabase) {
+      this.leafCollectionDb = config.leafCollectionDatabase;
+      updated = true;
+    }
+    if (config.leafCollectionTable) {
+      this.leafCollectionTable = config.leafCollectionTable;
+      updated = true;
+    }
+    if (config.leafCountDatabase) {
+      this.leafCountDb = config.leafCountDatabase;
+      updated = true;
+    }
+    if (config.leafCountTable) {
+      this.leafCountTable = config.leafCountTable;
+      updated = true;
+    }
+    if (config.schema) {
+      this.schema = config.schema;
+      updated = true;
+    }
+    
+    if (updated) {
+      // Reconstruct full table names
+      this.leafCollectionFullName = `[${this.leafCollectionDb}].[${this.schema}].[${this.leafCollectionTable}]`;
+      this.leafCountFullName = `[${this.leafCountDb}].[${this.schema}].[${this.leafCountTable}]`;
+      
+      console.log('📊 Database configuration updated:', {
+        leafCollectionTable: this.leafCollectionFullName,
+        leafCountTable: this.leafCountFullName
+      });
     }
   }
 }
