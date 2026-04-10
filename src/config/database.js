@@ -1,17 +1,24 @@
-const sql = require('mssql/msnodesqlv8'); // Use the native Windows driver
+const sql = require('mssql/msnodesqlv8'); 
 require('dotenv').config();
 
 // Use the DSN we just created in the ODBC Administrator
+// const dbConfig = {
+//   //connectionString: `DSN=BoughtLeaf_Kandedola;Trusted_Connection=yes;`,
+
+//   connectionString: `Data Source=68.178.166.190,1434;Initial Catalog=BoughtLeaf_Kandedola;Persist Security Info=True;User ID=sa;Password=Cey_2025;Encrypt=True;Trust Server Certificate=True;`,
+//   options: {
+//     trustServerCertificate: true, 
+//   },
+//   pool: {
+//     max: 10,
+//     min: 0,
+//     idleTimeoutMillis: 30000
+//   }
+// };
+
+
 const dbConfig = {
-  connectionString: `DSN=TeaFactoryDB;Trusted_Connection=yes;`,
-  options: {
-    trustServerCertificate: true, // Important for local development
-  },
-  pool: {
-    max: 10,
-    min: 0,
-    idleTimeoutMillis: 30000
-  }
+  connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=68.178.166.190,1434;Database=BoughtLeaf_Kandedola;UID=sa;PWD=Cey_2025;Encrypt=yes;TrustServerCertificate=yes;`,
 };
 
 console.log('🚀 Attempting to connect using DSN: TeaFactoryDB');

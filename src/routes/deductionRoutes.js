@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const deductionController = require('../controllers/deductionController');
 
-// Get today's deduction summary by registration number - leaf type from header (NOW RETURNS ONLY TODAY'S DATA)
+// Get today's deduction summary by registration number
 router.get('/summary/:regNo', deductionController.getDeductionSummary);
 
 // Save new deduction

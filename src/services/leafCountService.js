@@ -237,7 +237,7 @@ class LeafCountService {
         FROM ${this.getLeafCountTable()}
         WHERE 1=1
       `;
-      
+    
       const request = pool.request();
       
       if (filters.month) {
@@ -310,3 +310,4 @@ class LeafCountService {
 }
 
 module.exports = new LeafCountService();
+

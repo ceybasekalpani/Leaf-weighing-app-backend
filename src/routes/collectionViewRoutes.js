@@ -8,4 +8,4 @@ router.get('/today', collectionViewController.getTodayCollections);
 // Get collections by specific date
 router.get('/date/:date', collectionViewController.getCollectionsByDate);
 
-module.exports = router; // This should export router, not the controller
+module.exports = router; 
