@@ -1,14 +1,15 @@
 const app = require('./src/app');
-const { getConnection } = require('./src/config/database');
+const { getMainConnection, getSetupConnection } = require('./src/config/database');
 
 const PORT = process.env.PORT || 5000;
 
 // Test database connection and start server
 const startServer = async () => {
   try {
-    // Test database connection
-    await getConnection();
-    console.log('✅ Database connected successfully');
+    // Test both database connections
+    await getMainConnection();
+    await getSetupConnection();
+    console.log('✅ Both databases connected successfully');
     
     // Start server
     app.listen(PORT, () => {

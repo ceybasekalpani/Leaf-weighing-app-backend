@@ -1,4 +1,4 @@
-const { getConnection, sql } = require('../config/database');
+const { getMainConnection, sql } = require('../config/database');
 
 
 /**
@@ -128,7 +128,7 @@ class CollectionDbService {
   // Get all collections with combined data per registration number
   async getAllCollections() {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       const leafTable = getLeafCollectionTable();
       
       const result = await pool.request()
@@ -195,7 +195,7 @@ class CollectionDbService {
   // Get filtered collections
   async getFilteredCollections(filters) {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       const leafTable = getLeafCollectionTable();
       const { startDate, endDate, regNo, route } = filters;
       
@@ -288,7 +288,7 @@ class CollectionDbService {
   // Get today's collections
   async getTodaysCollections() {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       const leafTable = getLeafCollectionTable();
       const today = new Date().toISOString().split('T')[0];
       
@@ -354,7 +354,7 @@ class CollectionDbService {
   // Get details for a specific registration number
   async getCollectionDetails(regNo) {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       const leafTable = getLeafCollectionTable();
       
       const result = await pool.request()

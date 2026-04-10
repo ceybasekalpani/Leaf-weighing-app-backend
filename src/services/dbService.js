@@ -1,4 +1,4 @@
-const { getConnection, sql } = require('../config/database');
+const { getMainConnection, sql } = require('../config/database');
 
 class DbService {
   constructor() {
@@ -19,7 +19,7 @@ class DbService {
   // Get supplier information by registration number
   async getSupplierByRegNo(regNo) {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       const result = await pool.request()
         .input('regNo', sql.Int, regNo)
         .query(`
@@ -41,7 +41,7 @@ class DbService {
   // Search suppliers by registration number or name
   async searchSuppliers(query) {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       const result = await pool.request()
         .input('query', sql.NVarChar, `%${query}%`)
         .query(`
@@ -65,7 +65,7 @@ class DbService {
   // Get today's deductions summary for a specific registration number and leaf type
   async getTodayDeductionSummary(regNo, leafType) {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       const today = new Date().toISOString().split('T')[0];
       
       console.log(`📊 Getting TODAY'S summary for RegNo: ${regNo}, LeafType: ${leafType}`);
@@ -121,7 +121,7 @@ class DbService {
   // Get today's transactions for a specific registration number
   async getTodayTransactions(regNo) {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       const today = new Date().toISOString().split('T')[0];
       
       const result = await pool.request()
@@ -162,7 +162,7 @@ class DbService {
   // Save new deduction - creates ONE NEW RECORD per entry with IsDeduction = 1
   async saveDeduction(deductionData) {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       
       // Log the complete received data for debugging
       console.log('📥 COMPLETE RECEIVED DATA:', JSON.stringify(deductionData, null, 2));
@@ -302,7 +302,7 @@ class DbService {
   // Get today's collections grouped by registration number
   async getTodayGroupedCollections() {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       const today = new Date().toISOString().split('T')[0];
       
       console.log(`📊 Getting TODAY'S grouped collections for date: ${today}`);
@@ -372,7 +372,7 @@ class DbService {
   // Get grouped collections by specific date
   async getGroupedCollectionsByDate(date) {
     try {
-      const pool = await getConnection();
+      const pool = await getMainConnection();
       
       console.log(`📊 Getting grouped collections for date: ${date}`);
       

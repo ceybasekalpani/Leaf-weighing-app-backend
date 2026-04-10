@@ -1,46 +1,38 @@
-const sql = require('mssql/msnodesqlv8'); 
+const sql = require('mssql/msnodesqlv8');
 require('dotenv').config();
 
-// Use the DSN we just created in the ODBC Administrator
-// const dbConfig = {
-//   //connectionString: `DSN=BoughtLeaf_Kandedola;Trusted_Connection=yes;`,
+const dbHost = process.env.DB_SERVER || '68.178.166.190';
+const dbPort = process.env.DB_PORT || '1434';
 
-//   connectionString: `Data Source=68.178.166.190,1434;Initial Catalog=BoughtLeaf_Kandedola;Persist Security Info=True;User ID=sa;Password=Cey_2025;Encrypt=True;Trust Server Certificate=True;`,
-//   options: {
-//     trustServerCertificate: true, 
-//   },
-//   pool: {
-//     max: 10,
-//     min: 0,
-//     idleTimeoutMillis: 30000
-//   }
-// };
-
-
-const dbConfig = {
-  connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=68.178.166.190,1434;Database=BoughtLeaf_Kandedola;UID=sa;PWD=Cey_2025;Encrypt=yes;TrustServerCertificate=yes;`,
+// Main DB (BoughtLeaf_Kandedola)
+const mainDbConfig = {
+  connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=${dbHost},${dbPort};Database=${process.env.DB_DATABASE};UID=${process.env.DB_DATABASE_USER};PWD=${process.env.DB_DATABASE_PASSWORD};Encrypt=yes;TrustServerCertificate=yes;`,
+  connectionTimeout: 30000,
+  requestTimeout: 30000,
 };
 
-console.log('🚀 Attempting to connect using DSN: TeaFactoryDB');
-let pool = null;
-
-const getConnection = async () => {
-  try {
-    if (pool) {
-      return pool;
-    }
-
-    pool = await sql.connect(dbConfig);
-    console.log('✅ Connected to SQL Server successfully using Windows Authentication!');
-    return pool;
-  } catch (err) {
-    console.error('❌ Database connection failed:');
-    console.error('Error:', err.message);
-    throw err;
-  }
+// Setup DB (Setup_tbl_Kandedola)
+const setupDbConfig = {
+  connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=${dbHost},${dbPort};Database=${process.env.DB_NAME};UID=${process.env.DB_DATABASE_USER};PWD=${process.env.DB_DATABASE_PASSWORD};Encrypt=yes;TrustServerCertificate=yes;`,
+  connectionTimeout: 30000,
+  requestTimeout: 30000,
 };
 
-module.exports = {
-  getConnection,
-  sql
+let mainPool = null;
+let setupPool = null;
+
+const getMainConnection = async () => {
+  if (mainPool) return mainPool;
+  mainPool = new sql.ConnectionPool(mainDbConfig);
+  await mainPool.connect();
+  return mainPool;
 };
+
+const getSetupConnection = async () => {
+  if (setupPool) return setupPool;
+  setupPool = new sql.ConnectionPool(setupDbConfig);
+  await setupPool.connect();
+  return setupPool;
+};
+
+module.exports = { getMainConnection, getSetupConnection, sql };

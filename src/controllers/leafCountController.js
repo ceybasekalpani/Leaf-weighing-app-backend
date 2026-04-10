@@ -124,10 +124,11 @@ const leafCountController = {
         endDate
       });
       
+      const safeHistory = history || [];
       res.status(200).json({
         success: true,
-        data: history || [],
-        count: history.length
+        data: safeHistory,
+        count: safeHistory.length
       });
     } catch (error) {
       console.error('❌ Error in getLeafCountHistory:', error);

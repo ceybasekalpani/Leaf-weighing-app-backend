@@ -173,7 +173,7 @@
 //   verifyToken
 // };
 
-const { getConnection, sql } = require('../config/database');
+const { getSetupConnection, sql } = require('../config/database');
 
 // Helper function to get database name from env
 const getDatabaseName = () => {
@@ -252,7 +252,7 @@ const login = async (req, res) => {
       });
     }
 
-    const pool = await getConnection();
+    const pool = await getSetupConnection();
     const userTable = getUserSetupTable();
 
     // Query to check user credentials from UserSetup table (completely dynamic)
