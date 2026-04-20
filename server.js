@@ -1,5 +1,5 @@
 const app = require('./src/app');
-const { getMainConnection, getSetupConnection } = require('./src/config/database');
+const { getConnection, getSetupConnection } = require('./src/config/database');  // Changed from getMainConnection to getConnection
 
 const PORT = process.env.PORT || 5000;
 
@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     // Test both database connections
-    await getMainConnection();
+    await getConnection();  // Changed from getMainConnection to getConnection
     await getSetupConnection();
     console.log('✅ Both databases connected successfully');
     
